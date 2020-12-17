@@ -1,0 +1,232 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Список продуктов</title>
+    <link href="lib/bootstrap/dist/css/bootstrap.css" rel="stylesheet" />
+    <script src="lib/jquery/dist/jquery.js"></script>
+    <link href="lib/jquery-ui/themes/base/jquery-ui.min.css" rel="stylesheet" />
+    <script src="lib/jquery-ui/jquery-ui.js"></script>
+    <script src="lib/jquery-ui/ui/i18n/datepicker-ru.js"></script>
+</head>
+<body>
+    <h2>Список продуктов</h2>
+    <form name="productForm">
+        <input type="hidden" name="productId" value="0" />
+        <div class="form-group col-md-5">
+            <label for="productName">Наименование продукта :</label>
+            <input class="form-control" name="productName" />
+        </div>
+        <div class="form-group col-md-5">
+            <label for="storage">Место хранения :</label>
+            <input class="form-control" name="storage" />
+        </div>
+        <div class="form-group col-md-5">
+            <label for="packaging">Упаковка :</label>
+            <input class="form-control" name="packaging" />
+        </div>
+        <div class="form-group col-md-5">
+            <label for="expirationDate">Дата окончания срока :</label>
+            <input class="form-control" name="expirationDate" />
+        </div>
+        <div class="form-group col-md-5">
+            <label for="typeName">Наименование типа продукта:</label>
+            <select id="typeId" name="typeId"></select>
+        </div>
+        <div class="panel-body">
+            <button type="submit" id="submit" class="btn btn-primary">Сохранить</button>
+            <a id="reset" class="btn btn-primary">Сброс</a>
+        </div>
+    </form>
+    <table class="table table-condensed table-striped  col-md-6">
+        <thead><tr><th>Id</th><th>Наименование продукта</th><th>Место хранения</th><th>Упаковка</th><th>Дата окончания срока</th><th>Наименование типа продукта</th><th></th></tr></thead>
+        <tbody>
+        </tbody>
+    </table>
+    <script>
+        async function GetProducts() {
+            const response = await fetch("/api/products", {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+            if (response.ok === true) {
+                const products = await response.json();
+                let rows = document.querySelector("tbody");
+                products.forEach(product => {
+                    rows.append(row(product));
+                });
+            }
+        }
+        async function GetProduct(id) {
+            $.ajax({
+                url: '/api/products/' + id,
+                type: 'GET',
+                contentType: "application/json",
+                success: function (product) {
+                    var form = document.forms["productForm"];
+                    form.elements["productId"].value = product.productId;
+                    form.elements["productName"].value = product.productName;
+                    form.elements["storage"].value = product.storage;
+                    form.elements["packaging"].value = product.packaging;
+                    form.elements["expirationDate"].value = product.expirationDate;
+                    form.elements["typeId"].value = product.typeId;
+                }
+            });
+        }
+        async function CreateProduct(productName, storage, packaging, expirationDate, typeId) {
+            $.ajax({
+                url: "api/products/",
+                contentType: "application/json",
+                method: "POST",
+                data: JSON.stringify({
+                    productName: productName,
+                    storage: storage,
+                    packaging: packaging,
+                    expirationDate: parseInt(expirationDate, 10),
+                    typeId: parseInt(typeId, 10)
+                }),
+                success: function (product) {
+                    reset();
+                    var form = document.forms["productForm"];
+                    product.typeName = form.elements["typeId"].options[typeId].text;
+                    document.querySelector("tbody").append(row(product));
+                }
+            })
+        }
+        async function EditProduct(productId, productName, storage, packaging, expirationDate, typeId) {
+            const response = await fetch("api/products/", {
+                method: "PUT",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    productId: parseInt(productId, 10),
+                    productName: productName,
+                    storage: storage,
+                    packaging: packaging,
+                    expirationDate: parseInt(expirationDate, 10),
+                    typeId: parseInt(typeId, 10)
+                })
+            });
+            if (response.ok === true) {
+                const product = await response.json();
+                reset();
+                var form = document.forms["productForm"];
+                product.typeName = form.elements["typeId"].options[typeId].text;
+                document.querySelector("tr[data-rowid='" + product.productId + "']").replaceWith(row(product));
+            }
+        }
+        async function DeleteProduct(id) {
+            const response = await fetch("/api/products/" + id, {
+                method: "DELETE",
+                headers: { "Accept": "application/json" }
+            });
+            if (response.ok === true) {
+                const product = await response.json();
+                document.querySelector("tr[data-rowid='" + product.productId + "']").remove();
+            }
+        }
+
+        function GetProductTypes() {
+            var listItems = "";
+            $.ajax({
+                url: '/api/products/productTypes',
+                type: 'GET',
+                contentType: "application/json",
+                success: function (productTypes) {
+                    listItems = listItems + "<option value=0 selected>(выбор)</option>";
+                    $.each(productTypes, function (index, productType) {
+                        listItems = listItems + "<option value='" + productType.typeId + "'>" + productType.typeName + "</option>";
+                    });
+                    $("#typeId").html(listItems);
+                }
+            });
+        }
+
+        function reset() {
+            const form = document.forms["productForm"];
+            form.reset();
+            form.elements["productId"].value = 0;
+        }
+        function row(product) {
+
+            const tr = document.createElement("tr");
+            tr.setAttribute("data-rowid", product.productId);
+
+            const idTd = document.createElement("td");
+            idTd.append(product.productId);
+            tr.append(idTd);
+
+            const productNameTd = document.createElement("td");
+            productNameTd.append(product.productName);
+            tr.append(productNameTd);
+
+            const storageTd = document.createElement("td");
+            storageTd.append(product.storage);
+            tr.append(storageTd);
+
+            const packagingTd = document.createElement("td");
+            packagingTd.append(product.packaging);
+            tr.append(packagingTd);
+
+            const expirationDateTd = document.createElement("td");
+            expirationDateTd.append(product.expirationDate);
+            tr.append(expirationDateTd);
+
+            const typeTd = document.createElement("td");
+            typeTd.append(product.typeName);
+            tr.append(typeTd);
+
+            const linksTd = document.createElement("td");
+
+            const editLink = document.createElement("a");
+            editLink.setAttribute("data-id", product.productId);
+            editLink.setAttribute("style", "cursor:pointer;padding:15px;");
+            editLink.append("Изменить");
+            editLink.addEventListener("click", e => {
+
+                e.preventDefault();
+                GetProduct(product.productId);
+            });
+            linksTd.append(editLink);
+
+            const removeLink = document.createElement("a");
+            removeLink.setAttribute("data-id", product.productId);
+            removeLink.setAttribute("style", "cursor:pointer;padding:15px;");
+            removeLink.append("Удалить");
+            removeLink.addEventListener("click", e => {
+
+                e.preventDefault();
+                DeleteProduct(product.productId);
+            });
+
+            linksTd.append(removeLink);
+            tr.appendChild(linksTd);
+
+            return tr;
+        }
+
+        $("#reset").click(function (e) {
+            e.preventDefault();
+            reset();
+        })
+
+        document.forms["productForm"].addEventListener("submit", e => {
+            e.preventDefault();
+            const form = document.forms["productForm"];
+            const id = form.elements["productId"].value;
+            const productName = form.elements["productName"].value;
+            const storage = form.elements["storage"].value;
+            const packaging = form.elements["packaging"].value;
+            const expirationDate = form.elements["expirationDate"].value;
+            const typeId = form.elements["typeId"].value;
+            if (id == 0)
+                CreateProduct(productName, storage, packaging, expirationDate, typeId);
+            else
+                EditProduct(id, productName, storage, packaging, expirationDate, typeId);
+        });
+
+        GetProducts();
+        GetProductTypes();
+    </script>
+</body>
+</html>
